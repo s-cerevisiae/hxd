@@ -1,0 +1,8 @@
+[package]
+name = "hxd"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+argh = "0.1.12"
+tempfile = "3.10.1"
