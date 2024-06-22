@@ -56,6 +56,14 @@ struct Printer {
 }
 
 impl Printer {
+    fn new(octets_per_group: usize) -> Self {
+        Self {
+            octets_per_group,
+            output_width: 0,
+            current_offset: 0,
+        }
+    }
+
     fn write_line<W: Write>(&mut self, out: W, buf: &[u8]) -> io::Result<()> {
         let mut out = CountingWriter::new(out);
         write!(out, "{:08x}: ", self.current_offset)?;
@@ -66,17 +74,17 @@ impl Printer {
             write!(out, "{b:02x}")?;
         }
 
-        self.output_width = self.output_width.max(out.count() + 2);
-        let padding = self.output_width - out.count();
+        self.output_width = self.output_width.max(out.count());
+        let padding = self.output_width - out.count() + 2;
         write!(out, "{:1$}", " ", padding)?;
 
         for &b in buf {
             let c = if b.is_ascii_graphic() || b == b' ' {
-                b
+                b.into()
             } else {
-                b'.'
+                '.'
             };
-            write!(out, "{}", c as char)?;
+            write!(out, "{c}")?;
         }
         writeln!(out)?;
 
@@ -104,11 +112,7 @@ pub(crate) fn dump_impl<R: Read, W: Write>(
 ) -> Result<(), io::Error> {
     let octets_per_line = options.columns;
 
-    let mut printer = Printer {
-        octets_per_group: options.groupsize,
-        output_width: 0,
-        current_offset: 0,
-    };
+    let mut printer = Printer::new(options.groupsize);
     let mut buf = vec![0; octets_per_line];
     loop {
         match read_till_full(&mut reader, &mut buf) {
