@@ -24,12 +24,12 @@ fn read_till_full<R: Read>(mut reader: R, buf: &mut [u8]) -> ReadResult {
     ReadResult::Ok
 }
 
-struct WriteCounter<W> {
+struct CountingWriter<W> {
     writer: W,
     count: usize,
 }
 
-impl<W> WriteCounter<W> {
+impl<W> CountingWriter<W> {
     fn new(writer: W) -> Self {
         Self { writer, count: 0 }
     }
@@ -39,7 +39,7 @@ impl<W> WriteCounter<W> {
     }
 }
 
-impl<W: Write> Write for WriteCounter<W> {
+impl<W: Write> Write for CountingWriter<W> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         self.writer.write(buf).inspect(|n| self.count += n)
     }
@@ -57,7 +57,7 @@ struct Printer {
 
 impl Printer {
     fn write_line<W: Write>(&mut self, out: W, buf: &[u8]) -> io::Result<()> {
-        let mut out = WriteCounter::new(out);
+        let mut out = CountingWriter::new(out);
         write!(out, "{:08x}: ", self.current_offset)?;
         for (i, b) in buf.iter().enumerate() {
             if i != 0 && i % self.octets_per_group == 0 {
