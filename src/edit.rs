@@ -9,11 +9,7 @@ use std::{
 use eyre::{bail, eyre, WrapErr};
 use tempfile::NamedTempFile;
 
-use crate::{
-    cli::{DumpArgs, EditArgs},
-    dump::dump_impl,
-    load::load_impl,
-};
+use crate::{cli::EditArgs, dump::dump_impl, load::load_impl};
 
 pub fn edit(options: EditArgs) -> eyre::Result<()> {
     let EditArgs {
@@ -39,16 +35,13 @@ pub fn edit(options: EditArgs) -> eyre::Result<()> {
         )
     })?;
     dump_impl(
-        DumpArgs {
-            columns,
-            groupsize,
-            input: Some(input.clone()),
-        },
         BufReader::new(
             File::open(input_path)
                 .wrap_err_with(|| eyre!("failed to open file `{}`", input_path.display()))?,
         ),
         BufWriter::new(&mut dump_tmp),
+        columns,
+        groupsize,
     )?;
     let file_to_edit = dump_tmp.into_temp_path();
 

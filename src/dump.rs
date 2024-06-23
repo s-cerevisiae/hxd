@@ -97,28 +97,32 @@ impl Printer {
 }
 
 pub fn dump(options: DumpArgs) -> eyre::Result<()> {
+    let DumpArgs {
+        columns,
+        groupsize,
+        input,
+    } = options;
     let writer = io::stdout().lock();
-    if let Some(path) = &options.input {
+    if let Some(path) = &input {
         let reader = BufReader::new(
             File::open(path)
                 .wrap_err_with(|| eyre!("failed to open file `{}`", path.to_string_lossy()))?,
         );
-        dump_impl(options, reader, writer)
+        dump_impl(reader, writer, columns, groupsize)
     } else {
         let reader = io::stdin().lock();
-        dump_impl(options, reader, writer)
+        dump_impl(reader, writer, columns, groupsize)
     }
 }
 
 pub(crate) fn dump_impl<R: Read, W: Write>(
-    options: DumpArgs,
     mut reader: R,
     mut writer: W,
+    columns: usize,
+    groupsize: usize,
 ) -> eyre::Result<()> {
-    let octets_per_line = options.columns;
-
-    let mut printer = Printer::new(options.groupsize);
-    let mut buf = vec![0; octets_per_line];
+    let mut printer = Printer::new(groupsize);
+    let mut buf = vec![0; columns];
     loop {
         match read_till_full(&mut reader, &mut buf) {
             ReadResult::Eof(0) => break,
