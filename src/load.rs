@@ -19,16 +19,8 @@ pub fn load(options: LoadArgs) -> Result<(), io::Error> {
 pub(crate) fn load_impl<R: BufRead, W: Write>(reader: R, mut writer: W) -> Result<(), io::Error> {
     for line in reader.lines() {
         let line = line?;
-        let Some((groups, _)) = line
-            .split_once(": ")
-            .and_then(|(_, line)| line.split_once("  "))
-        else {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                format!("invalid line format:\n{line}"),
-            ));
-        };
-        for mut group in groups.split(' ') {
+        let dump = extract_dump(line.as_str());
+        for mut group in dump.split(' ') {
             while let Some(b) = group.get(..2) {
                 group = &group[2..];
                 let b = u8::from_str_radix(b, 16).map_err(|e| {
@@ -40,4 +32,32 @@ pub(crate) fn load_impl<R: BufRead, W: Write>(reader: R, mut writer: W) -> Resul
     }
 
     Ok(())
+}
+
+fn extract_dump(line: &str) -> &str {
+    let rest = line.split_once(": ")
+        .map_or(line, |(_offset, rest)| rest);
+    let dump = rest.split_once("  ")
+        .map_or(rest, |(dump, _comments)| dump);
+    dump.trim()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_extract_dump() {
+        assert_eq!(extract_dump(""), "");
+        assert_eq!(extract_dump("abcd"), "abcd");
+        assert_eq!(extract_dump("0: abcd"), "abcd");
+        assert_eq!(extract_dump("0: abcd  ????"), "abcd");
+        assert_eq!(extract_dump("0: abcd "), "abcd");
+        // this case might be surprising
+        assert_eq!(extract_dump("0:    abcd "), "");
+        assert_eq!(extract_dump(" abcd "), "abcd");
+        assert_eq!(extract_dump("  abcd "), "");
+        assert_eq!(extract_dump(" abcd  ????"), "abcd");
+        assert_eq!(extract_dump("00 abcd  ????"), "00 abcd");
+    }
 }
