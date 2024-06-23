@@ -21,6 +21,12 @@ pub(crate) fn load_impl<R: BufRead, W: Write>(reader: R, mut writer: W) -> Resul
         let line = line?;
         let dump = extract_dump(line.as_str());
         for mut group in dump.split(' ') {
+            if group.len() % 2 != 0 {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    format!("incomplete octet:\n{line}"),
+                ));
+            }
             while let Some(b) = group.get(..2) {
                 group = &group[2..];
                 let b = u8::from_str_radix(b, 16).map_err(|e| {
@@ -35,10 +41,8 @@ pub(crate) fn load_impl<R: BufRead, W: Write>(reader: R, mut writer: W) -> Resul
 }
 
 fn extract_dump(line: &str) -> &str {
-    let rest = line.split_once(": ")
-        .map_or(line, |(_offset, rest)| rest);
-    let dump = rest.split_once("  ")
-        .map_or(rest, |(dump, _comments)| dump);
+    let rest = line.split_once(": ").map_or(line, |(_offset, rest)| rest);
+    let dump = rest.split_once("  ").map_or(rest, |(dump, _comments)| dump);
     dump.trim()
 }
 
