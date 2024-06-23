@@ -3,6 +3,8 @@ use std::{
     io::{self, BufReader, Read, Write},
 };
 
+use eyre::{bail, eyre, WrapErr};
+
 use crate::cli::DumpArgs;
 
 enum ReadResult {
@@ -64,7 +66,7 @@ impl Printer {
         }
     }
 
-    fn write_line<W: Write>(&mut self, out: W, buf: &[u8]) -> io::Result<()> {
+    fn write_line<W: Write>(&mut self, out: W, buf: &[u8]) -> eyre::Result<()> {
         let mut out = CountingWriter::new(out);
         write!(out, "{:08x}: ", self.current_offset)?;
         for (i, b) in buf.iter().enumerate() {
@@ -94,10 +96,13 @@ impl Printer {
     }
 }
 
-pub fn dump(options: DumpArgs) -> io::Result<()> {
+pub fn dump(options: DumpArgs) -> eyre::Result<()> {
     let writer = io::stdout().lock();
     if let Some(path) = &options.input {
-        let reader = BufReader::new(File::open(path)?);
+        let reader = BufReader::new(
+            File::open(path)
+                .wrap_err_with(|| eyre!("failed to open file `{}`", path.to_string_lossy()))?,
+        );
         dump_impl(options, reader, writer)
     } else {
         let reader = io::stdin().lock();
@@ -109,7 +114,7 @@ pub(crate) fn dump_impl<R: Read, W: Write>(
     options: DumpArgs,
     mut reader: R,
     mut writer: W,
-) -> Result<(), io::Error> {
+) -> eyre::Result<()> {
     let octets_per_line = options.columns;
 
     let mut printer = Printer::new(options.groupsize);
@@ -118,11 +123,15 @@ pub(crate) fn dump_impl<R: Read, W: Write>(
         match read_till_full(&mut reader, &mut buf) {
             ReadResult::Eof(0) => break,
             ReadResult::Eof(n) => {
-                printer.write_line(&mut writer, &buf[..n])?;
+                printer
+                    .write_line(&mut writer, &buf[..n])
+                    .wrap_err("failed to write output")?;
                 break;
             }
-            ReadResult::Ok => printer.write_line(&mut writer, &buf)?,
-            ReadResult::Err(e) => return Err(e),
+            ReadResult::Ok => printer
+                .write_line(&mut writer, &buf)
+                .wrap_err("failed to write output")?,
+            ReadResult::Err(e) => bail!("failed to read input: {e}"),
         }
     }
 

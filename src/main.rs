@@ -17,7 +17,7 @@ fn main() -> ExitCode {
     };
 
     if let Err(e) = result {
-        eprintln!("error: {e}");
+        eprintln!("error: {e:?}");
         ExitCode::FAILURE
     } else {
         ExitCode::SUCCESS

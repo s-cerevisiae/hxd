@@ -3,12 +3,17 @@ use std::{
     io::{self, BufRead, BufReader, Write},
 };
 
+use eyre::{bail, eyre, WrapErr};
+
 use crate::cli::LoadArgs;
 
-pub fn load(options: LoadArgs) -> Result<(), io::Error> {
+pub fn load(options: LoadArgs) -> eyre::Result<()> {
     let writer = io::stdout().lock();
     if let Some(path) = options.input {
-        let reader = BufReader::new(File::open(path)?);
+        let reader = BufReader::new(
+            File::open(&path)
+                .wrap_err_with(|| eyre!("failed to open file `{}`", path.to_string_lossy()))?,
+        );
         load_impl(reader, writer)
     } else {
         let reader = io::stdin().lock();
@@ -16,22 +21,18 @@ pub fn load(options: LoadArgs) -> Result<(), io::Error> {
     }
 }
 
-pub(crate) fn load_impl<R: BufRead, W: Write>(reader: R, mut writer: W) -> Result<(), io::Error> {
+pub(crate) fn load_impl<R: BufRead, W: Write>(reader: R, mut writer: W) -> eyre::Result<()> {
     for line in reader.lines() {
         let line = line?;
         let dump = extract_dump(line.as_str());
         for mut group in dump.split_ascii_whitespace() {
             if group.len() % 2 != 0 {
-                return Err(io::Error::new(
-                    io::ErrorKind::InvalidInput,
-                    format!("incomplete octet:\n{line}"),
-                ));
+                bail!("incomplete octet in input:\n{line}")
             }
             while let Some(b) = group.get(..2) {
                 group = &group[2..];
-                let b = u8::from_str_radix(b, 16).map_err(|e| {
-                    io::Error::new(io::ErrorKind::InvalidInput, format!("{e}:\n{line}"))
-                })?;
+                let b = u8::from_str_radix(b, 16)
+                    .wrap_err_with(|| eyre!("failed to parse octet `{b}` in\n{line}"))?;
                 writer.write_all(&[b])?;
             }
         }
