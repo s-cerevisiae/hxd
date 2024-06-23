@@ -75,8 +75,8 @@ impl Printer {
         }
 
         self.output_width = self.output_width.max(out.count());
-        let padding = self.output_width - out.count() + 2;
-        write!(out, "{:1$}", " ", padding)?;
+        let padding = self.output_width - out.count();
+        write!(out, "{:>1$}", " | ", padding + 3)?;
 
         for &b in buf {
             let c = if b.is_ascii_graphic() || b == b' ' {
