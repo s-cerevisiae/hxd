@@ -1,6 +1,7 @@
 use std::{
     fs::File,
     io::{self, BufReader, Read, Write},
+    num::NonZeroUsize,
 };
 
 use eyre::{bail, eyre, WrapErr};
@@ -70,7 +71,7 @@ impl Printer {
         let mut out = CountingWriter::new(out);
         write!(out, "{:08x}: ", self.current_offset)?;
         for (i, b) in buf.iter().enumerate() {
-            if i != 0 && i % self.octets_per_group == 0 {
+            if self.octets_per_group != 0 && i != 0 && i % self.octets_per_group == 0 {
                 write!(out, " ")?;
             }
             write!(out, "{b:02x}")?;
@@ -118,11 +119,11 @@ pub fn dump(options: DumpArgs) -> eyre::Result<()> {
 pub(crate) fn dump_impl<R: Read, W: Write>(
     mut reader: R,
     mut writer: W,
-    columns: usize,
+    columns: NonZeroUsize,
     groupsize: usize,
 ) -> eyre::Result<()> {
     let mut printer = Printer::new(groupsize);
-    let mut buf = vec![0; columns];
+    let mut buf = vec![0; columns.into()];
     loop {
         match read_till_full(&mut reader, &mut buf) {
             ReadResult::Eof(0) => break,
