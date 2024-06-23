@@ -1,6 +1,6 @@
 use std::ffi::OsString;
 
-/// A non-interactive hex processor.
+/// A non-interactive hexdump processor.
 #[derive(argh::FromArgs)]
 pub struct CliArgs {
     #[argh(subcommand)]
@@ -16,7 +16,7 @@ pub enum SubCmd {
 
 #[derive(argh::FromArgs)]
 #[argh(subcommand, name = "dump")]
-/// dumps a file into xxd-like format
+/// dumps a file into hexdump format
 pub struct DumpArgs {
     #[argh(option, short = 'c', default = "16")]
     /// number of octets shown on each line, defaults to 16
@@ -31,7 +31,7 @@ pub struct DumpArgs {
 
 #[derive(argh::FromArgs)]
 #[argh(subcommand, name = "load")]
-/// parse the format from `dump` and output the original binary
+/// parse the format from `dump` and output the original binary, ignoring offsets and comments
 pub struct LoadArgs {
     #[argh(positional)]
     /// input file, defaults to stdin
@@ -40,7 +40,7 @@ pub struct LoadArgs {
 
 #[derive(argh::FromArgs)]
 #[argh(subcommand, name = "edit")]
-/// open an editor to edit the binary, original file will be replaced if no error
+/// open an editor to edit the binary, original file will be replaced if no error has occurred
 pub struct EditArgs {
     #[argh(option, short = 'c', default = "16")]
     /// number of octets shown on each line, defaults to 16
