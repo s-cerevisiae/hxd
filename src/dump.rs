@@ -136,7 +136,7 @@ pub(crate) fn dump_impl<R: Read, W: Write>(
             ReadResult::Ok => printer
                 .write_line(&mut writer, &buf)
                 .wrap_err("failed to write output")?,
-            ReadResult::Err(e) => bail!("failed to read input: {e}"),
+            ReadResult::Err(e) => bail!(eyre::Report::new(e).wrap_err("failed to read input")),
         }
     }
 
