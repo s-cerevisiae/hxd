@@ -28,12 +28,16 @@ pub fn edit(options: EditArgs) -> eyre::Result<()> {
             input_path.display()
         );
     };
-    let mut dump_tmp = NamedTempFile::with_prefix_in(file_name, dir).wrap_err_with(|| {
-        eyre!(
-            "failed to create temporary file for editing in `{}`",
-            dir.display()
-        )
-    })?;
+    let mut dump_tmp = tempfile::Builder::new()
+        .prefix(file_name)
+        .suffix(".hxd")
+        .tempfile_in(dir)
+        .wrap_err_with(|| {
+            eyre!(
+                "failed to create temporary file for editing in `{}`",
+                dir.display()
+            )
+        })?;
     dump_impl(
         BufReader::new(
             File::open(input_path)
