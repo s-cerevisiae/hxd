@@ -7,7 +7,6 @@ use std::{
 };
 
 use eyre::{bail, eyre, WrapErr};
-use tempfile::NamedTempFile;
 
 use crate::{cli::EditArgs, dump::dump_impl, load::load_impl};
 
@@ -38,11 +37,11 @@ pub fn edit(options: EditArgs) -> eyre::Result<()> {
                 dir.display()
             )
         })?;
+    let input_file = File::open(input_path)
+        .wrap_err_with(|| eyre!("failed to open file `{}`", input_path.display()))?;
+    let input_file_perm = input_file.metadata()?.permissions();
     dump_impl(
-        BufReader::new(
-            File::open(input_path)
-                .wrap_err_with(|| eyre!("failed to open file `{}`", input_path.display()))?,
-        ),
+        BufReader::new(input_file),
         BufWriter::new(&mut dump_tmp),
         columns,
         groupsize,
@@ -56,7 +55,10 @@ pub fn edit(options: EditArgs) -> eyre::Result<()> {
         .wrap_err("failed to start editor")?
         .wait()?;
 
-    let mut target = NamedTempFile::with_prefix_in(file_name, dir)?;
+    let mut target = tempfile::Builder::new()
+        .prefix(file_name)
+        .permissions(input_file_perm)
+        .tempfile_in(dir)?;
     load_impl(
         BufReader::new(File::open(&file_to_edit)?),
         BufWriter::new(&mut target),
