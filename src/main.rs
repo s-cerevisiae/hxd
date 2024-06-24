@@ -1,4 +1,4 @@
-use std::process::ExitCode;
+use std::{io, process::ExitCode};
 
 use hxd::{
     cli::{CliArgs, SubCmd},
@@ -17,7 +17,12 @@ fn main() -> ExitCode {
     };
 
     if let Err(e) = result {
-        eprintln!("error: {e:?}");
+        if !e
+            .downcast_ref::<io::Error>()
+            .map_or(false, |e| e.kind() == io::ErrorKind::BrokenPipe)
+        {
+            eprintln!("error: {e:?}");
+        }
         ExitCode::FAILURE
     } else {
         ExitCode::SUCCESS

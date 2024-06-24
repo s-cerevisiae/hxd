@@ -67,7 +67,7 @@ impl Printer {
         }
     }
 
-    fn write_line<W: Write>(&mut self, out: W, buf: &[u8]) -> eyre::Result<()> {
+    fn write_line<W: Write>(&mut self, out: W, buf: &[u8]) -> io::Result<()> {
         let mut out = CountingWriter::new(out);
         write!(out, "{:08x}: ", self.current_offset)?;
         for (i, b) in buf.iter().enumerate() {
