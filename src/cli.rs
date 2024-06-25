@@ -12,6 +12,7 @@ pub enum SubCmd {
     Dump(DumpArgs),
     Load(LoadArgs),
     Edit(EditArgs),
+    Patch(PatchArgs),
 }
 
 #[derive(argh::FromArgs)]
@@ -51,4 +52,14 @@ pub struct EditArgs {
     #[argh(positional)]
     /// the file to edit
     pub input: OsString,
+}
+
+#[derive(argh::FromArgs)]
+#[argh(subcommand, name = "patch")]
+/// parse the input as the dump format into a patch, and overwrite portions in the target file
+/// accordingly
+pub struct PatchArgs {
+    #[argh(positional)]
+    // the file to apply the patch
+    pub target: OsString,
 }

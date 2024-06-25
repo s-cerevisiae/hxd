@@ -3,3 +3,4 @@ pub mod dump;
 pub mod edit;
 pub mod load;
 pub mod parse;
+pub mod patch;

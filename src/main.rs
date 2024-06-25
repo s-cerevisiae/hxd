@@ -4,7 +4,7 @@ use hxd::{
     cli::{CliArgs, SubCmd},
     dump::dump,
     edit::edit,
-    load::load,
+    load::load, patch::patch,
 };
 
 fn main() -> ExitCode {
@@ -14,6 +14,7 @@ fn main() -> ExitCode {
         SubCmd::Dump(d) => dump(d),
         SubCmd::Load(l) => load(l),
         SubCmd::Edit(e) => edit(e),
+        SubCmd::Patch(p) => patch(p),
     };
 
     if let Err(e) = result {
