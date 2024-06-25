@@ -28,8 +28,9 @@ See `hxd [subcommand] --help` for possible flags and arguments.
 
 ## TODO
 
-- [ ] Patch mode: respect the offset and overwrite a small portion of target
+- [x] (done, needs polishment) Patch mode: respect the offset and overwrite a small portion of target
   file; support loading sparse and not-in-order dump files
+- [ ] More sophisticated cli options: `--offset`, `hxd edit --patch`, etc.
 - [ ] Octal and binary dumps
 
 ## License
