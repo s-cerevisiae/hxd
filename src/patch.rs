@@ -3,7 +3,7 @@ use std::{
     io::{self, BufRead, Seek, Write},
 };
 
-use eyre::{eyre, WrapErr};
+use eyre::{eyre, OptionExt, WrapErr};
 
 use crate::{
     cli::PatchArgs,
@@ -18,24 +18,31 @@ struct Patch {
 type PatchSet = Vec<Patch>;
 
 fn parse_patch<R: BufRead>(reader: R) -> eyre::Result<PatchSet> {
-    reader
-        .lines()
-        .map(|line| -> eyre::Result<Patch> {
-            let line = line?;
-            let DumpLine { offset, data, .. } = recognize_line(&line);
+    let mut patch_set: PatchSet = Vec::new();
+    for line in reader.lines() {
+        let line = line?;
+        let DumpLine { offset, data, .. } = recognize_line(&line);
+        let mut parsed_data = Vec::new();
+        for_parsed_data(data, |b| {
+            parsed_data.push(b);
+            Ok(())
+        })?;
+        if offset.is_empty() {
+            patch_set
+                .last_mut()
+                .ok_or_eyre("patch must start with a valid offset")?
+                .data
+                .extend(parsed_data);
+        } else {
             let offset = u64::from_str_radix(offset, 16)
                 .wrap_err_with(|| eyre!("invalid offset `{offset}`"))?;
-            let mut parsed_data = Vec::new();
-            for_parsed_data(data, |b| {
-                parsed_data.push(b);
-                Ok(())
-            })?;
-            Ok(Patch {
+            patch_set.push(Patch {
                 offset,
                 data: parsed_data,
-            })
-        })
-        .collect()
+            });
+        }
+    }
+    Ok(patch_set)
 }
 
 pub fn patch(args: PatchArgs) -> eyre::Result<()> {
