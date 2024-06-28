@@ -3,7 +3,7 @@ use std::{
     io::{self, BufRead, Seek, Write},
 };
 
-use eyre::{eyre, WrapErr};
+use eyre::{ensure, eyre, WrapErr};
 
 use crate::{
     cli::PatchArgs,
@@ -31,6 +31,7 @@ pub(crate) fn patch_impl<R: BufRead, W: Write + Seek>(
     reader: R,
     mut writer: W,
 ) -> eyre::Result<()> {
+    let mut last_offset = None;
     for line in reader.lines() {
         let line = line?;
         let DumpLine { offset, data, .. } = recognize_line(&line);
@@ -38,7 +39,12 @@ pub(crate) fn patch_impl<R: BufRead, W: Write + Seek>(
             let offset = u64::from_str_radix(offset, 16)
                 .wrap_err_with(|| eyre!("invalid offset `{offset}`"))?;
             writer.seek(io::SeekFrom::Start(offset))?;
+            last_offset = Some(offset);
         }
+        ensure!(
+            last_offset.is_some(),
+            "offset must be defined before any data in patch"
+        );
         for_parsed_data(data, |b| {
             writer
                 .write_all(&[b])
@@ -72,7 +78,7 @@ mod tests {
 
     #[test]
     fn test_patch() {
-        // assert!(dbg!(patch("aa", [])).is_err());
+        assert!(patch("aa", []).is_err());
         assert_eq!(
             patch("0: aabbcc", hex("ddccbbaa")).unwrap(),
             hex("aabbccaa")
