@@ -16,19 +16,50 @@ with ASCII printable characters shown as-is and others shown as `.`.
 
 ## Features
 
-`hxd dump`: dumps the input into aforementioned hexdump format.
+### `hxd dump`
 
-`hxd load`: loads the format produced by `dump`, convert it back into binary.
-The offset and comments part are ignored and can be omitted.
+Dumps the input into the hxd format.
 
-`hxd edit`: summons your `$EDITOR` to edit a binary file as the hexdump format.
-Same as above, the offset and comment part of the dump are ignored when saving.
+```sh
+> cat 1.txt
+abcdefgh
+> hxd dump 1.txt
+00000000: 61626364 65666768 0a | abcdefgh.
+```
+
+### `hxd load`
+Loads the input in hxd format, convert it back into binary. The offset and
+comments part are ignored and can be omitted.
+
+```sh
+> cat 1.hxd
+00000000: 61626364 65666768 0a | abcdefgh.
+> hxd load 1.hxd
+abcdefgh
+```
+
+### `hxd edit`
+Summons your `$EDITOR` to edit a binary file as the hxd format. Same as above,
+the offset and comment part of the dump are ignored on save. Note that the
+whole file will be dumped into the editor, so use it with care on large files.
+
+### `hxd patch`
+Reads input from stdin and apply it as a patch to the target file,
+**respecting** offset. A line without offset continues the last line.
+
+```sh
+> hxd dump 1.txt
+00000000: 61626364 65666768 0a | abcdefgh.
+> echo '01:72' | hxd patch 1.txt
+> cat 1.txt
+arcdefgh
+```
 
 See `hxd [subcommand] --help` for possible flags and arguments.
 
 ## TODO
 
-- [x] (done, needs polishment) Patch mode: respect the offset and overwrite a small portion of target
+- [x] Patch mode: respect the offset and overwrite a small portion of target
   file; support loading sparse and not-in-order dump files
 - [ ] More sophisticated cli options: `--offset`, `hxd edit --patch`, etc.
 - [ ] Octal and binary dumps
