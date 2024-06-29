@@ -1,3 +1,5 @@
+use std::{num::ParseIntError, str::FromStr};
+
 use eyre::{bail, eyre, WrapErr};
 
 #[derive(Debug, PartialEq, Eq)]
@@ -35,6 +37,38 @@ pub fn for_parsed_data(data: &str, mut f: impl FnMut(u8) -> eyre::Result<()>) ->
     Ok(())
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Offset {
+    Absolute(u64),
+    Relative(i64),
+}
+
+impl FromStr for Offset {
+    type Err = ParseIntError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(if s.starts_with(['+', '-']) {
+            Self::Relative(i64::from_str_radix(s, 16)?)
+        } else {
+            Self::Absolute(u64::from_str_radix(s, 16)?)
+        })
+    }
+}
+
+impl Offset {
+    pub fn to_absolute(self, basis: Option<u64>) -> eyre::Result<u64> {
+        match (self, basis) {
+            (Offset::Absolute(n), _) => Ok(n),
+            (Offset::Relative(n), None) => {
+                bail!("relative offset `{n:x}` found before any absolute ones")
+            }
+            (Offset::Relative(n), Some(m)) => m
+                .checked_add_signed(n)
+                .ok_or_else(|| eyre!("relative offset overflown at `{m} + {n}`")),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -70,5 +104,20 @@ mod tests {
             p("", "00 abcd", "  ????")
         );
         assert_eq!(recognize_line("abcd |0:  ????"), p("", "abcd", "0:  ????"));
+    }
+
+    #[test]
+    fn test_offset_parsing() {
+        let abs = Offset::Absolute;
+        let rel = Offset::Relative;
+        assert_eq!("00000000".parse(), Ok(abs(0)));
+        assert_eq!("00000001".parse(), Ok(abs(1)));
+        assert_eq!("a".parse(), Ok(abs(10)));
+        assert_eq!("A".parse(), Ok(abs(10)));
+        assert!(Offset::from_str("g").is_err());
+        assert!(Offset::from_str("+").is_err());
+        assert!(Offset::from_str("-").is_err());
+        assert_eq!("+1".parse(), Ok(rel(1)));
+        assert_eq!("-1".parse(), Ok(rel(-1)));
     }
 }

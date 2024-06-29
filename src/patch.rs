@@ -7,7 +7,7 @@ use eyre::{ensure, eyre, WrapErr};
 
 use crate::{
     cli::PatchArgs,
-    parse::{for_parsed_data, recognize_line, DumpLine},
+    parse::{for_parsed_data, recognize_line, DumpLine, Offset},
 };
 
 pub fn patch(args: PatchArgs) -> eyre::Result<()> {
@@ -36,10 +36,12 @@ pub(crate) fn patch_impl<R: BufRead, W: Write + Seek>(
         let line = line?;
         let DumpLine { offset, data, .. } = recognize_line(&line);
         if !offset.is_empty() {
-            let offset = u64::from_str_radix(offset, 16)
-                .wrap_err_with(|| eyre!("invalid offset `{offset}`"))?;
+            let offset = offset
+                .parse::<Offset>()
+                .wrap_err_with(|| eyre!("invalid offset `{offset}`"))?
+                .to_absolute(last_offset)?;
             writer.seek(io::SeekFrom::Start(offset))?;
-            last_offset = Some(offset);
+            last_offset = Some(offset)
         }
         ensure!(
             last_offset.is_some(),
@@ -109,5 +111,15 @@ mod tests {
             patch("5:aabb", hex("ddccbbaa")).unwrap(),
             hex("ddccbbaa00aabb")
         );
+        assert_eq!(
+            patch("01:01\n+02:03", hex("ddccbbaa")).unwrap(),
+            hex("dd01bb03")
+        );
+        assert_eq!(
+            patch("01:01\n-01:00", hex("ddccbbaa")).unwrap(),
+            hex("0001bbaa")
+        );
+        assert!(patch("+01:01", hex("ddccbbaa")).is_err());
+        assert!(patch("00:\n-01:01", hex("ddccbbaa")).is_err());
     }
 }
