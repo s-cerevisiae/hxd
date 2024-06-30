@@ -55,7 +55,7 @@ impl<W: Write> Write for CountingWriter<W> {
 struct Printer {
     octets_per_group: usize,
     output_width: usize,
-    current_offset: usize,
+    current_offset: u64,
 }
 
 impl Printer {
@@ -91,7 +91,7 @@ impl Printer {
         }
         writeln!(out)?;
 
-        self.current_offset += buf.len();
+        self.current_offset += buf.len() as u64;
 
         Ok(())
     }
