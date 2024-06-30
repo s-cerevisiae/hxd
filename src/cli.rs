@@ -62,6 +62,9 @@ pub struct EditArgs {
 /// parse the input as the dump format into a patch, and overwrite portions in the target file
 /// accordingly
 pub struct PatchArgs {
+    #[argh(option, short = 'o', default = "0")]
+    /// add given amount to all the offset in patch before applying, can be negative. defaults to 0
+    pub offset: i64,
     #[argh(positional)]
     // the file to apply the patch
     pub target: OsString,

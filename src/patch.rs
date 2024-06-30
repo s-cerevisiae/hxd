@@ -24,12 +24,13 @@ pub fn patch(args: PatchArgs) -> eyre::Result<()> {
 
     let input = io::stdin().lock();
 
-    patch_impl(input, target)
+    patch_impl(input, target, args.offset)
 }
 
 pub(crate) fn patch_impl<R: BufRead, W: Write + Seek>(
     reader: R,
     mut writer: W,
+    global_offset: i64,
 ) -> eyre::Result<()> {
     let mut last_offset = None;
     for line in reader.lines() {
@@ -40,7 +41,11 @@ pub(crate) fn patch_impl<R: BufRead, W: Write + Seek>(
                 .parse::<Offset>()
                 .wrap_err_with(|| eyre!("invalid offset `{offset}`"))?
                 .to_absolute(last_offset)?;
-            writer.seek(io::SeekFrom::Start(offset))?;
+            writer.seek(io::SeekFrom::Start(
+                offset
+                    .checked_add_signed(global_offset)
+                    .ok_or_else(|| eyre!("failed to add `{global_offset}` to offset `{offset}`"))?,
+            ))?;
             last_offset = Some(offset)
         }
         ensure!(
@@ -63,8 +68,12 @@ mod tests {
     use super::*;
 
     fn patch(i: &str, o: impl Into<Vec<u8>>) -> eyre::Result<Vec<u8>> {
+        patch_offset(i, o, 0)
+    }
+
+    fn patch_offset(i: &str, o: impl Into<Vec<u8>>, offset: i64) -> eyre::Result<Vec<u8>> {
         let mut o = o.into();
-        patch_impl(i.as_bytes(), Cursor::new(&mut o))?;
+        patch_impl(i.as_bytes(), Cursor::new(&mut o), offset)?;
         Ok(o)
     }
 
@@ -121,5 +130,26 @@ mod tests {
         );
         assert!(patch("+01:01", hex("ddccbbaa")).is_err());
         assert!(patch("00:\n-01:01", hex("ddccbbaa")).is_err());
+    }
+
+    #[test]
+    fn test_patch_offset() {
+        assert_eq!(
+            patch_offset("0:aa", hex("ddccbbaa"), 1).unwrap(),
+            hex("ddaabbaa")
+        );
+        assert_eq!(
+            patch_offset("0:aa", hex("ddccbbaa"), 4).unwrap(),
+            hex("ddccbbaaaa")
+        );
+        assert_eq!(
+            patch_offset("1:01\n+1:02", hex("ddccbbaa"), 1).unwrap(),
+            hex("ddcc0102")
+        );
+        assert_eq!(
+            patch_offset("1:01\n+1:02", hex("ddccbbaa"), -1).unwrap(),
+            hex("0102bbaa")
+        );
+        assert!(patch_offset("1:01\n+1:02", hex("ddccbbaa"), -2).is_err());
     }
 }
