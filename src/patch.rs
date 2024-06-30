@@ -1,6 +1,6 @@
 use std::{
     fs::File,
-    io::{self, BufRead, Seek, Write},
+    io::{self, BufRead, BufWriter, Seek, Write},
 };
 
 use eyre::{ensure, eyre, WrapErr};
@@ -11,16 +11,18 @@ use crate::{
 };
 
 pub fn patch(args: PatchArgs) -> eyre::Result<()> {
-    let target = File::options()
-        .write(true)
-        .read(false)
-        .open(&args.target)
-        .wrap_err_with(|| {
-            eyre!(
-                "failed to open target file at `{}`",
-                args.target.to_string_lossy()
-            )
-        })?;
+    let target = BufWriter::new(
+        File::options()
+            .write(true)
+            .read(false)
+            .open(&args.target)
+            .wrap_err_with(|| {
+                eyre!(
+                    "failed to open target file at `{}`",
+                    args.target.to_string_lossy()
+                )
+            })?,
+    );
 
     let input = io::stdin().lock();
 
