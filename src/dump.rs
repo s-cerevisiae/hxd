@@ -27,35 +27,11 @@ fn read_till_full<R: Read>(mut reader: R, buf: &mut [u8]) -> ReadResult {
     ReadResult::Ok
 }
 
-struct CountingWriter<W> {
-    writer: W,
-    count: usize,
-}
-
-impl<W> CountingWriter<W> {
-    fn new(writer: W) -> Self {
-        Self { writer, count: 0 }
-    }
-
-    fn count(&self) -> usize {
-        self.count
-    }
-}
-
-impl<W: Write> Write for CountingWriter<W> {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.writer.write(buf).inspect(|n| self.count += n)
-    }
-
-    fn flush(&mut self) -> io::Result<()> {
-        self.writer.flush()
-    }
-}
-
 struct Printer {
     octets_per_group: usize,
     output_width: usize,
     current_offset: u64,
+    line_buf: Vec<u8>,
 }
 
 impl Printer {
@@ -64,23 +40,25 @@ impl Printer {
             octets_per_group,
             output_width: 0,
             current_offset: 0,
+            line_buf: Vec::new(),
         }
     }
 
-    fn write_line<W: Write>(&mut self, out: W, buf: &[u8]) -> io::Result<()> {
-        let mut out = CountingWriter::new(out);
-        write!(out, "{:08x}: ", self.current_offset)?;
+    fn write_line<W: Write>(&mut self, mut out: W, buf: &[u8]) -> io::Result<()> {
+        write!(self.line_buf, "{:08x}: ", self.current_offset)?;
         for (i, b) in buf.iter().enumerate() {
             if self.octets_per_group != 0 && i != 0 && i % self.octets_per_group == 0 {
-                write!(out, " ")?;
+                write!(self.line_buf, " ")?;
             }
-            write!(out, "{b:02x}")?;
+            write!(self.line_buf, "{b:02x}")?;
         }
 
-        self.output_width = self.output_width.max(out.count());
-        let padding = self.output_width - out.count();
-        write!(out, "{:>1$}", " | ", padding + 3)?;
+        self.output_width = self.output_width.max(self.line_buf.len());
+        let padding = self.output_width - self.line_buf.len();
+        out.write_all(&self.line_buf)?;
+        self.line_buf.clear();
 
+        write!(out, "{:>1$}", " | ", padding + 3)?;
         for &b in buf {
             let c = if b.is_ascii_graphic() || b == b' ' {
                 b.into()
@@ -141,4 +119,49 @@ pub(crate) fn dump_impl<R: Read, W: Write>(
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io::Cursor;
+
+    use crate::parse::for_parsed_data;
+
+    use super::*;
+
+    fn dump(
+        i: impl AsRef<[u8]>,
+        columns: usize,
+        groupsize: usize,
+    ) -> eyre::Result<String> {
+        let mut o = Vec::new();
+        dump_impl(
+            i.as_ref(),
+            Cursor::new(&mut o),
+            columns.try_into()?,
+            groupsize,
+        )?;
+        Ok(String::from_utf8(o)?)
+    }
+
+    fn hex(s: &str) -> Vec<u8> {
+        let mut result = Vec::new();
+        for_parsed_data(s, |b| {
+            result.push(b);
+            Ok(())
+        })
+        .unwrap();
+        result
+    }
+
+    #[test]
+    fn test_dump() {
+        assert!(dump("abcd", 0, 4).is_err());
+        assert_eq!(dump("abcd", 4, 0).unwrap(), "00000000: 61626364 | abcd\n");
+        assert_eq!(dump("abcd", 1, 0).unwrap(), "00000000: 61 | a\n00000001: 62 | b\n00000002: 63 | c\n00000003: 64 | d\n");
+        assert_eq!(dump("abcd", 2, 0).unwrap(), "00000000: 6162 | ab\n00000002: 6364 | cd\n");
+        assert_eq!(dump("abc", 2, 0).unwrap(), "00000000: 6162 | ab\n00000002: 63   | c\n");
+        assert_eq!(dump("\n", 2, 0).unwrap(), "00000000: 0a | .\n");
+        assert_eq!(dump(hex("aaaa"), 2, 0).unwrap(), "00000000: aaaa | ..\n");
+    }
 }
