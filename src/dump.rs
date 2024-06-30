@@ -35,11 +35,11 @@ struct Printer {
 }
 
 impl Printer {
-    fn new(octets_per_group: usize) -> Self {
+    fn new(octets_per_group: usize, starting_offset: u64) -> Self {
         Self {
             octets_per_group,
             output_width: 0,
-            current_offset: 0,
+            current_offset: starting_offset,
             line_buf: Vec::new(),
         }
     }
@@ -79,6 +79,7 @@ pub fn dump(options: DumpArgs) -> eyre::Result<()> {
     let DumpArgs {
         columns,
         groupsize,
+        offset,
         input,
     } = options;
     let writer = io::stdout().lock();
@@ -87,10 +88,10 @@ pub fn dump(options: DumpArgs) -> eyre::Result<()> {
             File::open(path)
                 .wrap_err_with(|| eyre!("failed to open file `{}`", path.to_string_lossy()))?,
         );
-        dump_impl(reader, writer, columns, groupsize)
+        dump_impl(reader, writer, columns, groupsize, offset)
     } else {
         let reader = io::stdin().lock();
-        dump_impl(reader, writer, columns, groupsize)
+        dump_impl(reader, writer, columns, groupsize, offset)
     }
 }
 
@@ -99,8 +100,9 @@ pub(crate) fn dump_impl<R: Read, W: Write>(
     mut writer: W,
     columns: NonZeroUsize,
     groupsize: usize,
+    offset: u64,
 ) -> eyre::Result<()> {
-    let mut printer = Printer::new(groupsize);
+    let mut printer = Printer::new(groupsize, offset);
     let mut buf = vec![0; columns.into()];
     loop {
         match read_till_full(&mut reader, &mut buf) {
@@ -133,6 +135,7 @@ mod tests {
         i: impl AsRef<[u8]>,
         columns: usize,
         groupsize: usize,
+        offset: u64,
     ) -> eyre::Result<String> {
         let mut o = Vec::new();
         dump_impl(
@@ -140,6 +143,7 @@ mod tests {
             Cursor::new(&mut o),
             columns.try_into()?,
             groupsize,
+            offset,
         )?;
         Ok(String::from_utf8(o)?)
     }
@@ -156,12 +160,29 @@ mod tests {
 
     #[test]
     fn test_dump() {
-        assert!(dump("abcd", 0, 4).is_err());
-        assert_eq!(dump("abcd", 4, 0).unwrap(), "00000000: 61626364 | abcd\n");
-        assert_eq!(dump("abcd", 1, 0).unwrap(), "00000000: 61 | a\n00000001: 62 | b\n00000002: 63 | c\n00000003: 64 | d\n");
-        assert_eq!(dump("abcd", 2, 0).unwrap(), "00000000: 6162 | ab\n00000002: 6364 | cd\n");
-        assert_eq!(dump("abc", 2, 0).unwrap(), "00000000: 6162 | ab\n00000002: 63   | c\n");
-        assert_eq!(dump("\n", 2, 0).unwrap(), "00000000: 0a | .\n");
-        assert_eq!(dump(hex("aaaa"), 2, 0).unwrap(), "00000000: aaaa | ..\n");
+        assert!(dump("abcd", 0, 4, 0).is_err());
+        assert_eq!(
+            dump("abcd", 4, 0, 0).unwrap(),
+            "00000000: 61626364 | abcd\n"
+        );
+        assert_eq!(
+            dump("abcd", 1, 0, 0).unwrap(),
+            "00000000: 61 | a\n00000001: 62 | b\n00000002: 63 | c\n00000003: 64 | d\n"
+        );
+        assert_eq!(
+            dump("abcd", 2, 0, 0).unwrap(),
+            "00000000: 6162 | ab\n00000002: 6364 | cd\n"
+        );
+        assert_eq!(
+            dump("abc", 2, 0, 0).unwrap(),
+            "00000000: 6162 | ab\n00000002: 63   | c\n"
+        );
+        assert_eq!(dump("\n", 2, 0, 0).unwrap(), "00000000: 0a | .\n");
+        assert_eq!(dump(hex("aaaa"), 2, 0, 0).unwrap(), "00000000: aaaa | ..\n");
+        assert_eq!(dump(hex("aaaa"), 2, 0, 1).unwrap(), "00000001: aaaa | ..\n");
+        assert_eq!(
+            dump("abc", 2, 0, 3).unwrap(),
+            "00000003: 6162 | ab\n00000005: 63   | c\n"
+        );
     }
 }

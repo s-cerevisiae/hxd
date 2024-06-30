@@ -25,6 +25,9 @@ pub struct DumpArgs {
     #[argh(option, short = 'g', default = "4")]
     /// octets per group (separated by a single space). defaults to 4, use 0 to disable grouping
     pub groupsize: usize,
+    #[argh(option, short = 'o', default = "0")]
+    /// add given amount to all the offset in output, defaults to 0
+    pub offset: u64,
     #[argh(positional)]
     /// input file, defaults to stdin
     pub input: Option<OsString>,

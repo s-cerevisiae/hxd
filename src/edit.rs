@@ -45,6 +45,7 @@ pub fn edit(options: EditArgs) -> eyre::Result<()> {
         BufWriter::new(&mut dump_tmp),
         columns,
         groupsize,
+        0,
     )?;
     let file_to_edit = dump_tmp.into_temp_path();
 
