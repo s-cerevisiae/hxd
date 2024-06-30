@@ -4,7 +4,8 @@ use hxd::{
     cli::{CliArgs, SubCmd},
     dump::dump,
     edit::edit,
-    load::load, patch::patch,
+    load::load,
+    patch::patch,
 };
 
 fn main() -> ExitCode {
