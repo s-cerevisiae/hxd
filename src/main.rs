@@ -1,6 +1,6 @@
 use std::{io, process::ExitCode};
 
-use hxd::{
+use nxd::{
     cli::{CliArgs, SubCmd},
     dump::dump,
     edit::edit,

@@ -29,7 +29,7 @@ pub fn edit(options: EditArgs) -> eyre::Result<()> {
     };
     let mut dump_tmp = tempfile::Builder::new()
         .prefix(file_name)
-        .suffix(".hxd")
+        .suffix(".nxd")
         .tempfile_in(dir)
         .wrap_err_with(|| {
             eyre!(
