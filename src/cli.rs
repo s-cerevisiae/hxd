@@ -1,4 +1,4 @@
-use std::{ffi::OsString, num::NonZeroUsize};
+use std::{num::NonZeroUsize, path::PathBuf};
 
 /// A non-interactive hexdump processor.
 #[derive(argh::FromArgs)]
@@ -30,7 +30,7 @@ pub struct DumpArgs {
     pub offset: u64,
     #[argh(positional)]
     /// input file, defaults to stdin
-    pub input: Option<OsString>,
+    pub input: Option<PathBuf>,
 }
 
 #[derive(argh::FromArgs)]
@@ -39,7 +39,7 @@ pub struct DumpArgs {
 pub struct LoadArgs {
     #[argh(positional)]
     /// input file, defaults to stdin
-    pub input: Option<OsString>,
+    pub input: Option<PathBuf>,
 }
 
 #[derive(argh::FromArgs)]
@@ -54,7 +54,7 @@ pub struct EditArgs {
     pub groupsize: usize,
     #[argh(positional)]
     /// the file to edit
-    pub input: OsString,
+    pub input: PathBuf,
 }
 
 #[derive(argh::FromArgs)]
@@ -67,5 +67,5 @@ pub struct PatchArgs {
     pub offset: i64,
     #[argh(positional)]
     // the file to apply the patch
-    pub target: OsString,
+    pub target: PathBuf,
 }
